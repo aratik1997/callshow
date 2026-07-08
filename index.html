@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yaniv Online</title>
+<link rel="stylesheet" href="css/style.css?v=5">
+</head>
+<body>
+<div class="landing-wrap">
+  <div class="logo">
+    <h1>YANIV</h1>
+    <div class="suits">♠ <span class="red">♥</span> <span class="red">♦</span> ♣</div>
+  </div>
+
+  <div class="card-panel">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="create">Create Room</button>
+      <button class="tab-btn" data-tab="join">Join Room</button>
+    </div>
+
+    <div id="tab-create" class="tab-content">
+      <div class="field">
+        <label for="create-name">Your name</label>
+        <input id="create-name" maxlength="20" placeholder="e.g. Alex" autocomplete="off">
+      </div>
+      <div class="form-error" id="create-error"></div>
+      <button class="btn-primary panel-action" id="create-btn">Create Room</button>
+    </div>
+
+    <div id="tab-join" class="tab-content hidden">
+      <div class="field">
+        <label for="join-name">Your name</label>
+        <input id="join-name" maxlength="20" placeholder="e.g. Sam" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="join-code">Room code</label>
+        <input id="join-code" class="code-input" maxlength="5" placeholder="ABCDE" autocomplete="off">
+      </div>
+      <div class="form-error" id="join-error"></div>
+      <button class="btn-primary panel-action" id="join-btn">Join Room</button>
+    </div>
+  </div>
+
+  <div class="rules-link"><a href="rules.html">How do I play Yaniv?</a></div>
+</div>
+
+<script src="js/landing.js?v=5"></script>
+</body>
+</html>

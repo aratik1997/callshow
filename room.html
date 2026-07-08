@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yaniv Online — Room</title>
+<link rel="stylesheet" href="css/style.css?v=12">
+</head>
+<body>
+<div class="game-wrap">
+  <div class="topbar">
+    <div class="brand">YANIV</div>
+    <div class="room-code-tag" id="room-code-tag" title="Click to copy invite link">Room: ----</div>
+    <a class="btn-secondary" href="rules.html" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center;">Rules</a>
+    <button class="btn-secondary" id="leave-btn">Leave</button>
+  </div>
+
+  <div id="opponents-row" class="opponents-row"></div>
+
+  <div class="table-area" id="table-area"></div>
+
+  <div class="bottom-bar">
+    <div class="your-info-row">
+      <div>You: <strong id="your-name">-</strong></div>
+      <div class="you-total" id="your-total">Hand total: 0</div>
+    </div>
+    <div class="hand-row" id="hand-row"></div>
+  </div>
+</div>
+
+<!-- Lobby (waiting for players / host to start) -->
+<div class="overlay-panel hidden" id="lobby-overlay">
+  <div class="overlay-card">
+    <h2>Waiting Room</h2>
+    <p>Share this code with friends so they can join:</p>
+    <div class="room-code-tag" id="lobby-code" style="display:inline-block;font-size:1.4rem;"></div>
+    <div class="lobby-players" id="lobby-players"></div>
+    <div id="lobby-host-controls"></div>
+    <div id="lobby-guest-msg" class="pickup-hint hidden">Waiting for the host to start the game…</div>
+    <div class="modal-close-row"><button class="btn-secondary" id="lobby-leave-btn">Back to Home</button></div>
+  </div>
+</div>
+
+<!-- Round end -->
+<div class="overlay-panel hidden" id="round-end-overlay">
+  <div class="overlay-card">
+    <h2 id="round-end-title">Round Over</h2>
+    <table class="results-table" id="round-end-table"></table>
+    <div id="round-end-controls"></div>
+  </div>
+</div>
+
+<!-- Finished -->
+<div class="overlay-panel hidden" id="finished-overlay">
+  <div class="overlay-card">
+    <h2 id="finished-title">Game Over</h2>
+    <table class="results-table" id="finished-table"></table>
+    <h3 id="scorecard-title" class="hidden" style="color:var(--gold-light); margin-top:20px; margin-bottom:4px;">Scorecard</h3>
+    <div style="overflow-x:auto;"><table class="results-table" id="scorecard-table"></table></div>
+    <button class="btn-primary" id="back-home-btn">Back to Home</button>
+  </div>
+</div>
+
+<div class="copy-toast" id="copy-toast">Invite link copied!</div>
+<div class="copy-toast" id="call-toast"></div>
+<div class="turn-toast" id="turn-toast">It's your turn!</div>
+
+<button class="chat-toggle-btn" id="chat-toggle-btn" title="Chat">💬<span class="chat-badge hidden" id="chat-badge">0</span></button>
+<div class="chat-panel hidden" id="chat-panel">
+  <div class="chat-panel-header">
+    <span>Chat</span>
+    <button class="chat-close-btn" id="chat-close-btn" type="button">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <form class="chat-input-row" id="chat-form">
+    <input type="text" id="chat-input" maxlength="200" placeholder="Say something…" autocomplete="off">
+    <button type="submit" class="btn-primary" id="chat-send-btn">Send</button>
+  </form>
+</div>
+
+<script src="js/game.js?v=12"></script>
+</body>
+</html>
