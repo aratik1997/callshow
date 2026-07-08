@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Yaniv Online — Room</title>
-<link rel="stylesheet" href="css/style.css?v=12">
+<link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
 <div class="game-wrap">
@@ -12,6 +12,7 @@
     <div class="brand">YANIV</div>
     <div class="room-code-tag" id="room-code-tag" title="Click to copy invite link">Room: ----</div>
     <a class="btn-secondary" href="rules.html" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center;">Rules</a>
+    <button class="btn-secondary hidden" id="new-round-btn">New Round</button>
     <button class="btn-secondary" id="leave-btn">Leave</button>
   </div>
 
@@ -66,6 +67,7 @@
 <div class="turn-toast" id="turn-toast">It's your turn!</div>
 
 <button class="chat-toggle-btn" id="chat-toggle-btn" title="Chat">💬<span class="chat-badge hidden" id="chat-badge">0</span></button>
+<button class="bell-btn" id="bell-btn" title="Ring the bell — everyone will hear it">🔔</button>
 <div class="chat-panel hidden" id="chat-panel">
   <div class="chat-panel-header">
     <span>Chat</span>
@@ -78,6 +80,6 @@
   </form>
 </div>
 
-<script src="js/game.js?v=12"></script>
+<script src="js/game.js?v=18"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ const ELIMINATION_SCORE = 200;
 const CALL_THRESHOLD = 11; // hand value below this: player is (auto) "called"
 const SHOW_THRESHOLD = 9;  // hand value below this, on a later turn: player may Show
 const TURN_SECONDS = 30;   // time budget per turn before auto-play kicks in
+const BELL_COOLDOWN_SECONDS = 5; // minimum gap between bell rings, room-wide
 
 function new_turn_deadline(): string {
     return date('Y-m-d H:i:s', time() + TURN_SECONDS);
@@ -228,6 +229,32 @@ function deal_new_round(PDO $pdo, int $roomId, array $players, int $startSeat): 
     $stmt->execute([$startSeat, json_encode($deck), json_encode([]), json_encode($discardTop), new_turn_deadline(), $roomId]);
 }
 
+/**
+ * Reshuffle seat order among everyone still in the game, deal a fresh round,
+ * and bump the round counter. Shared by the natural round_end -> next round
+ * transition and the host's "force a new round" mid-game reset. Must be
+ * called inside an already-open, row-locked transaction.
+ */
+function start_fresh_round(PDO $pdo, int $roomId): void {
+    $players = fetch_players($pdo, $roomId, true);
+
+    $active = array_values(array_filter($players, fn($p) => !$p['eliminated']));
+    $seats = array_map(fn($p) => (int)$p['seat'], $active);
+    shuffle($seats);
+    foreach ($active as $i => $p) {
+        $stmt = $pdo->prepare('UPDATE players SET seat = ? WHERE id = ?');
+        $stmt->execute([$seats[$i], $p['id']]);
+    }
+
+    $players = fetch_players($pdo, $roomId, true);
+    $active = array_values(array_filter($players, fn($p) => !$p['eliminated']));
+    $startSeat = min(array_map(fn($p) => (int)$p['seat'], $active));
+    deal_new_round($pdo, $roomId, $players, $startSeat);
+
+    $stmt = $pdo->prepare('UPDATE rooms SET round_number = round_number + 1 WHERE id = ?');
+    $stmt->execute([$roomId]);
+}
+
 function require_input_string(array $input, string $key): string {
     if (!isset($input[$key]) || !is_string($input[$key]) || trim($input[$key]) === '') {
         json_error("Missing field: $key");
@@ -290,8 +317,8 @@ function remove_player(PDO $pdo, array $room, array $player, string $logMessage)
  * row so only one concurrent request actually resolves an expired turn.
  */
 function auto_resolve_expired_turn(PDO $pdo, int $roomId): void {
-    $pdo->beginTransaction();
     try {
+        $pdo->beginTransaction();
         $stmt = $pdo->prepare('SELECT * FROM rooms WHERE id = ? FOR UPDATE');
         $stmt->execute([$roomId]);
         $room = $stmt->fetch();
@@ -377,6 +404,6 @@ function auto_resolve_expired_turn(PDO $pdo, int $roomId): void {
 
         $pdo->commit();
     } catch (Throwable $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) $pdo->rollBack();
     }
 }

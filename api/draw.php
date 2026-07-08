@@ -7,7 +7,9 @@ $input = read_json_body();
 $code = strtoupper(trim((string)($input['code'] ?? '')));
 $token = (string)($input['token'] ?? '');
 $source = (string)($input['source'] ?? '');
-if (!in_array($source, ['stock', 'left', 'right'], true)) json_error('Invalid draw source.');
+$cardId = (string)($input['card_id'] ?? '');
+if (!in_array($source, ['stock', 'table', 'left', 'right'], true)) json_error('Invalid draw source.');
+if ($source === 'table' && $cardId === '') json_error('Missing card_id.');
 
 $pdo = get_db();
 $pdo->beginTransaction();
@@ -44,6 +46,14 @@ try {
             $discardPile = [];
         }
         $drawnCard = array_pop($drawPile);
+    } elseif ($source === 'table') {
+        if (count($currentThrow) === 0) { $pdo->rollBack(); json_error('Nothing to draw from the table.'); }
+        $idx = null;
+        foreach ($currentThrow as $i => $c) {
+            if ($c['id'] === $cardId) { $idx = $i; break; }
+        }
+        if ($idx === null) { $pdo->rollBack(); json_error('That card is no longer on the table.'); }
+        $drawnCard = array_splice($currentThrow, $idx, 1)[0];
     } elseif ($source === 'left') {
         if (count($currentThrow) === 0) { $pdo->rollBack(); json_error('Nothing to draw from the table.'); }
         $drawnCard = array_shift($currentThrow);
@@ -62,7 +72,7 @@ try {
     // history, and this player's own throw is now revealed for the next player.
     foreach ($currentThrow as $c) $discardPile[] = $c;
 
-    $srcLabel = $source === 'stock' ? 'the deck' : "the table ($source)";
+    $srcLabel = $source === 'stock' ? 'the deck' : 'the table';
     log_event($pdo, (int)$room['id'], "{$player['name']} drew from $srcLabel.");
 
     // Evaluate call/show status now that this turn's hand is final.

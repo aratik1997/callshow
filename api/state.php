@@ -110,6 +110,8 @@ $response = [
     'draw_count'       => count($drawPile),
     'turn_deadline'    => $room['turn_deadline'] ? (strtotime($room['turn_deadline']) * 1000) : null,
     'chat'             => $chatOut,
+    'bell_at'          => !empty($room['bell_rung_at']) ? (strtotime($room['bell_rung_at']) * 1000) : null,
+    'bell_by'          => $room['bell_rung_by'] ?? null,
 ];
 
 if ($room['status'] === 'round_end' || $room['status'] === 'finished') {

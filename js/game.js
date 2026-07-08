@@ -104,6 +104,35 @@
   document.getElementById('leave-btn').addEventListener('click', leaveRoom);
   document.getElementById('lobby-leave-btn').addEventListener('click', leaveRoom);
 
+  const bellBtn = document.getElementById('bell-btn');
+  let bellCooldownEndsAt = 0;
+  function updateBellCooldown() {
+    const remaining = Math.ceil((bellCooldownEndsAt - Date.now()) / 1000);
+    if (remaining > 0) {
+      bellBtn.disabled = true;
+      bellBtn.textContent = String(remaining);
+    } else {
+      bellBtn.disabled = false;
+      bellBtn.textContent = '🔔';
+    }
+  }
+  setInterval(updateBellCooldown, 250);
+  bellBtn.addEventListener('click', async () => {
+    if (Date.now() < bellCooldownEndsAt) return;
+    bellCooldownEndsAt = Date.now() + 5000;
+    updateBellCooldown();
+    try { await api('api/ring_bell.php', { code: CODE, token }); } catch (e) { /* cooldown or transient — ignore */ }
+  });
+
+  const newRoundBtn = document.getElementById('new-round-btn');
+  newRoundBtn.addEventListener('click', async () => {
+    if (!confirm('Discard this round and start a new one for everyone?')) return;
+    newRoundBtn.disabled = true;
+    try { await api('api/force_new_round.php', { code: CODE, token }); }
+    catch (e) { alert(e.message); }
+    newRoundBtn.disabled = false;
+  });
+
   document.getElementById('back-home-btn').addEventListener('click', () => {
     localStorage.removeItem('yaniv_room');
     localStorage.removeItem('yaniv_token');
@@ -134,10 +163,27 @@
     lobbyPlayers.innerHTML = '';
     data.players.forEach((p) => {
       const row = document.createElement('div');
-      row.className = 'lobby-player-item';
-      const span = document.createElement('span');
-      span.innerHTML = `${escapeHtml(p.name)}${p.is_host ? ' <span class="host-badge">(host)</span>' : ''}${p.is_you ? ' — you' : ''}`;
-      row.appendChild(span);
+      row.className = 'lobby-player-item' + (p.is_you ? ' you' : '');
+
+      const identity = document.createElement('div');
+      identity.className = 'lobby-player-identity';
+      const avatar = document.createElement('div');
+      avatar.className = 'lobby-avatar';
+      avatar.textContent = p.name.slice(0, 2).toUpperCase();
+      identity.appendChild(avatar);
+      const nameWrap = document.createElement('div');
+      const nameLine = document.createElement('div');
+      nameLine.className = 'lobby-player-name';
+      nameLine.textContent = p.name;
+      nameWrap.appendChild(nameLine);
+      const badgeLine = document.createElement('div');
+      badgeLine.className = 'lobby-player-badges';
+      if (p.is_host) badgeLine.innerHTML += '<span class="lobby-host-badge">👑 HOST</span>';
+      if (p.is_you) badgeLine.innerHTML += '<span class="you-badge">YOU</span>';
+      if (badgeLine.innerHTML) nameWrap.appendChild(badgeLine);
+      identity.appendChild(nameWrap);
+      row.appendChild(identity);
+
       if (data.is_host && !p.is_you) {
         const kickBtn = document.createElement('button');
         kickBtn.className = 'kick-btn';
@@ -211,8 +257,8 @@
   function renderTable(data) {
     tableArea.innerHTML = '';
 
-    async function doDraw(source, errEl) {
-      try { await api('api/draw.php', { code: CODE, token, source }); }
+    async function doDraw(source, cardId, errEl) {
+      try { await api('api/draw.php', { code: CODE, token, source, card_id: cardId }); }
       catch (e) { showActionError(errEl, e.message); }
     }
 
@@ -228,7 +274,7 @@
     stockCount.className = 'stock-count';
     stockCount.textContent = data.draw_count;
     stockStack.appendChild(stockCount);
-    if (canDraw) stockStack.addEventListener('click', () => doDraw('stock', actionError));
+    if (canDraw) stockStack.addEventListener('click', () => doDraw('stock', null, actionError));
     stockPile.innerHTML = '<div class="pile-label">Deck</div>';
     stockPile.appendChild(stockStack);
     tableArea.appendChild(stockPile);
@@ -247,12 +293,10 @@
       emptySlot.className = 'empty-slot';
       throwCardsWrap.appendChild(emptySlot);
     } else {
-      throwCards.forEach((c, idx) => {
-        const isEnd = idx === 0 || idx === throwCards.length - 1;
-        const side = idx === 0 ? 'left' : 'right';
+      throwCards.forEach((c) => {
         const el = buildCardEl(c, {
-          extraClass: canPickThrow && isEnd ? 'pickable' : '',
-          onClick: canPickThrow && isEnd ? () => doDraw(side, actionError) : null,
+          extraClass: canPickThrow ? 'pickable' : '',
+          onClick: canPickThrow ? () => doDraw('table', c.id, actionError) : null,
         });
         throwCardsWrap.appendChild(el);
       });
@@ -353,7 +397,7 @@
     } else if (data.is_your_turn && data.awaiting_draw) {
       const hint = document.createElement('div');
       hint.className = 'pickup-hint';
-      hint.textContent = 'Click the deck, or a card at either end of the table pile, to draw:';
+      hint.textContent = 'Click the deck, or any card on the table pile, to draw:';
       center.appendChild(hint);
     } else {
       const hint = document.createElement('div');
@@ -456,6 +500,12 @@ function buildResultsTable(table, results, opts) {
       p.textContent = 'Waiting for the host to start the next round…';
       roundEndControls.appendChild(p);
     }
+
+    const leaveBtn = document.createElement('button');
+    leaveBtn.className = 'btn-secondary';
+    leaveBtn.textContent = 'Leave';
+    leaveBtn.addEventListener('click', leaveRoom);
+    roundEndControls.appendChild(leaveBtn);
   }
 
   function buildScorecard(table, roundHistory, finalResults) {
@@ -516,10 +566,31 @@ function buildResultsTable(table, results, opts) {
       (data.players || []).forEach((p) => {
         if (p.has_called && !previousCalled[p.seat]) {
           showCallToast(p.is_you ? 'You called!' : `${p.name} called!`);
+          playCallSound();
         }
       });
     }
     previousCalled = seatsNow;
+  }
+
+  // A new card throw appeared on the table — everyone hears it, not just the thrower.
+  let previousPendingThrowKey = null;
+  function checkThrowSound(data) {
+    const key = (data.pending_throw || []).map((c) => c.id).join(',');
+    if (previousPendingThrowKey !== null && key && key !== previousPendingThrowKey) {
+      playThrowSound();
+    }
+    previousPendingThrowKey = key;
+  }
+
+  // The bell — anyone can ring it, everyone hears it.
+  let previousBellAt = null;
+  function checkBell(data) {
+    if (previousBellAt !== null && data.bell_at && data.bell_at !== previousBellAt) {
+      playBellSound();
+      showCallToast(`🔔 ${data.bell_by || 'Someone'} rang the bell!`);
+    }
+    previousBellAt = data.bell_at;
   }
 
   // ---------- "Your turn" popup + sound ----------
@@ -550,6 +621,58 @@ function buildResultsTable(table, results, opts) {
       osc.connect(gain).connect(audioCtx.destination);
       osc.start(t);
       osc.stop(t + 0.3);
+    });
+  }
+
+  function playThrowSound() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(120, now + 0.09);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.22, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.13);
+  }
+
+  function playCallSound() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    [740, 990].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const t = now + i * 0.1;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.24, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.2);
+    });
+  }
+
+  function playBellSound() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    [880, 1320, 1760].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const peak = i === 0 ? 0.35 : 0.12;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(peak, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 1.5);
     });
   }
 
@@ -646,12 +769,15 @@ function buildResultsTable(table, results, opts) {
     lastData = data;
     checkCallToasts(data);
     checkYourTurn(data);
+    checkThrowSound(data);
+    checkBell(data);
 
     renderOpponents(data);
     renderTable(data);
     renderHand(data);
     renderChat(data);
     updateTimerDisplay();
+    newRoundBtn.classList.toggle('hidden', !(data.is_host && data.status === 'playing'));
 
     // Only touch the overlay panels when the status actually changes — toggling
     // their hidden class every poll (even to the same state) restarts their

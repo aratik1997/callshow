@@ -30,7 +30,7 @@ try {
     }
 
     $players = fetch_players($pdo, (int)$room['id'], true);
-    $active = array_values(array_filter($players, fn($p) => !$p['eliminated']));
+    $active = array_values(array_filter($players, fn($p) => !$p['eliminated'] && !is_spectator($p)));
 
     $totals = [];
     $hands = [];

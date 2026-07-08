@@ -27,11 +27,16 @@ try {
     if (!$target) { $pdo->rollBack(); json_error('Player not found.', 404); }
     if ((int)$target['id'] === (int)$host['id']) { $pdo->rollBack(); json_error("You can't kick yourself."); }
 
-    $stmt = $pdo->prepare(
-        'INSERT INTO kicks (token, kicked_by) VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE kicked_by = VALUES(kicked_by), created_at = CURRENT_TIMESTAMP'
-    );
-    $stmt->execute([$target['token'], $host['name']]);
+    try {
+        $stmt = $pdo->prepare(
+            'INSERT INTO kicks (token, kicked_by) VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE kicked_by = VALUES(kicked_by), created_at = CURRENT_TIMESTAMP'
+        );
+        $stmt->execute([$target['token'], $host['name']]);
+    } catch (Throwable $e) {
+        // kicks table may not exist yet (migration not run) — the kick itself
+        // should still go through, just without the "kicked by X" message.
+    }
 
     remove_player($pdo, $room, $target, "{$target['name']} was kicked by the host.");
 

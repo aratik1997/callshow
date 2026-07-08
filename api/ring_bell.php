@@ -1,0 +1,37 @@
+<?php
+declare(strict_types=1);
+require __DIR__ . '/db.php';
+require __DIR__ . '/helpers.php';
+
+// Anyone in the room can ring the bell to get everyone's attention. Cooldown
+// is enforced here (room-wide, not per-player) so it can't be spammed even
+// by several different players taking turns.
+
+$input = read_json_body();
+$code = strtoupper(trim((string)($input['code'] ?? '')));
+$token = (string)($input['token'] ?? '');
+
+$pdo = get_db();
+$pdo->beginTransaction();
+try {
+    $room = fetch_room_by_code($pdo, $code, true);
+    if (!$room) { $pdo->rollBack(); json_error('Room not found.', 404); }
+
+    $player = fetch_player_by_token($pdo, (int)$room['id'], $token, true);
+    if (!$player) { $pdo->rollBack(); json_error('Player not found.', 404); }
+
+    if (!empty($room['bell_rung_at']) && strtotime($room['bell_rung_at']) > time() - BELL_COOLDOWN_SECONDS) {
+        $pdo->rollBack();
+        json_error('The bell just rang — wait a moment.');
+    }
+
+    $stmt = $pdo->prepare('UPDATE rooms SET bell_rung_at = CURRENT_TIMESTAMP, bell_rung_by = ? WHERE id = ?');
+    $stmt->execute([$player['name'], $room['id']]);
+    log_event($pdo, (int)$room['id'], "{$player['name']} rang the bell.");
+
+    $pdo->commit();
+    json_response(['ok' => true]);
+} catch (Throwable $e) {
+    $pdo->rollBack();
+    json_error('Failed to ring the bell.', 500);
+}
