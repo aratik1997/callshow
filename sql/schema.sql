@@ -1,4 +1,4 @@
--- Yaniv online — database schema
+-- Kolshi — database schema
 -- Import this via phpMyAdmin (cPanel) or `mysql -u root -p yaniv < schema.sql` locally.
 
 CREATE TABLE IF NOT EXISTS rooms (

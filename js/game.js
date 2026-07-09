@@ -255,7 +255,7 @@
         kickBtn.addEventListener('click', () => kickPlayer(p.seat, p.name));
         pod.appendChild(kickBtn);
       }
-      if (!p.is_you && p.seat !== data.turn_seat) {
+      if (!p.is_you) {
         const bellBtn = document.createElement('button');
         bellBtn.className = 'taunt-bell-btn';
         bellBtn.title = `Ring the bell at ${p.name}`;

@@ -1,6 +1,6 @@
-# Yaniv Online
+# Kolshi
 
-A browser-based multiplayer Yaniv card game. Create a room, share the 5-letter
+A browser-based multiplayer Yaniv-rules card game. Create a room, share the 5-letter
 code with friends, and play in real time (polling-based, no WebSocket/Node.js
 required — works on plain PHP + MySQL hosting).
 
