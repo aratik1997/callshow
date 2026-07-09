@@ -4,7 +4,7 @@ declare(strict_types=1);
 const MAX_PLAYERS = 8;
 const ELIMINATION_SCORE = 200;
 const CALL_THRESHOLD = 11; // hand value below this: player is (auto) "called"
-const SHOW_THRESHOLD = 9;  // hand value below this, on a later turn: player may Show
+const SHOW_THRESHOLD = CALL_THRESHOLD; // once called, any later turn under this same threshold lets you show
 const TURN_SECONDS = 30;   // time budget per turn before auto-play kicks in
 const BELL_COOLDOWN_SECONDS = 5; // minimum gap between bell rings, room-wide
 
@@ -164,10 +164,18 @@ function next_active_seat(array $players, int $fromSeat): int {
     $seats = array_map(fn($p) => (int)$p['seat'], $players);
     sort($seats);
     $count = count($seats);
-    $idx = array_search($fromSeat, $seats, true);
-    if ($idx === false) $idx = 0;
-    for ($i = 1; $i <= $count; $i++) {
-        $candidateSeat = $seats[($idx + $i) % $count];
+    if ($count === 0) return $fromSeat;
+
+    // Start at the first seat strictly greater than $fromSeat, wrapping
+    // around to the lowest seat otherwise. Deliberately doesn't require
+    // $fromSeat to still be present in $players — it won't be when this is
+    // called right after the current turn holder was kicked or left.
+    $startIdx = 0;
+    foreach ($seats as $i => $s) {
+        if ($s > $fromSeat) { $startIdx = $i; break; }
+    }
+    for ($i = 0; $i < $count; $i++) {
+        $candidateSeat = $seats[($startIdx + $i) % $count];
         foreach ($players as $p) {
             if ((int)$p['seat'] === $candidateSeat && !$p['eliminated'] && !is_spectator($p)) {
                 return $candidateSeat;

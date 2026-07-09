@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS rooms (
   winner_name VARCHAR(50) NULL,
   bell_rung_at DATETIME NULL,
   bell_rung_by VARCHAR(50) NULL,
+  bell_target VARCHAR(50) NULL,
+  bell_target_seat INT NULL,
+  last_kick_at DATETIME NULL,
+  last_kick_by VARCHAR(50) NULL,
+  last_kicked_name VARCHAR(50) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

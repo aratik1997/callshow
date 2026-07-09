@@ -104,25 +104,30 @@
   document.getElementById('leave-btn').addEventListener('click', leaveRoom);
   document.getElementById('lobby-leave-btn').addEventListener('click', leaveRoom);
 
-  const bellBtn = document.getElementById('bell-btn');
+  // Taunt bell — one appears on each opponent's box (never your own, and
+  // never on whoever's turn it currently is). Shares one room-wide cooldown.
   let bellCooldownEndsAt = 0;
-  function updateBellCooldown() {
+  function updateBellButtons() {
     const remaining = Math.ceil((bellCooldownEndsAt - Date.now()) / 1000);
-    if (remaining > 0) {
-      bellBtn.disabled = true;
-      bellBtn.textContent = String(remaining);
-    } else {
-      bellBtn.disabled = false;
-      bellBtn.textContent = '🔔';
-    }
+    document.querySelectorAll('.taunt-bell-btn').forEach((btn) => {
+      if (remaining > 0) {
+        btn.disabled = true;
+        btn.textContent = String(remaining);
+      } else {
+        btn.disabled = false;
+        btn.textContent = '🔔';
+      }
+    });
   }
-  setInterval(updateBellCooldown, 250);
-  bellBtn.addEventListener('click', async () => {
+  setInterval(updateBellButtons, 250);
+
+  async function ringBellAt(targetSeat, targetName) {
     if (Date.now() < bellCooldownEndsAt) return;
     bellCooldownEndsAt = Date.now() + 5000;
-    updateBellCooldown();
-    try { await api('api/ring_bell.php', { code: CODE, token }); } catch (e) { /* cooldown or transient — ignore */ }
-  });
+    updateBellButtons();
+    try { await api('api/ring_bell.php', { code: CODE, token, target_seat: targetSeat }); }
+    catch (e) { /* cooldown or transient — ignore */ }
+  }
 
   const newRoundBtn = document.getElementById('new-round-btn');
   newRoundBtn.addEventListener('click', async () => {
@@ -250,8 +255,17 @@
         kickBtn.addEventListener('click', () => kickPlayer(p.seat, p.name));
         pod.appendChild(kickBtn);
       }
+      if (!p.is_you && p.seat !== data.turn_seat) {
+        const bellBtn = document.createElement('button');
+        bellBtn.className = 'taunt-bell-btn';
+        bellBtn.title = `Ring the bell at ${p.name}`;
+        bellBtn.textContent = '🔔';
+        bellBtn.addEventListener('click', () => ringBellAt(p.seat, p.name));
+        pod.appendChild(bellBtn);
+      }
       opponentsRow.appendChild(pod);
     });
+    updateBellButtons();
   }
 
   function renderTable(data) {
@@ -378,7 +392,7 @@
       const hint = document.createElement('div');
       hint.className = 'pickup-hint';
       hint.textContent = data.has_called
-        ? `Called — hand is ${data.your_hand_value}, need under 9 to show (next turn). Throw a card:`
+        ? `Called — hand is ${data.your_hand_value}, need under 11 to show (next turn). Throw a card:`
         : `Hand is ${data.your_hand_value}${data.your_hand_value < 11 ? ' — you\'ll be called after this turn.' : '.'} Throw a card:`;
       center.appendChild(hint);
 
@@ -583,14 +597,47 @@ function buildResultsTable(table, results, opts) {
     previousPendingThrowKey = key;
   }
 
+  // A draw resolves the previous player's pile — everyone hears it too.
+  // current_throw changes exactly when someone draws (their throw gets
+  // revealed as the new table pile), except at the start of a fresh round —
+  // guard against that by only firing within the same round_number.
+  let previousCurrentThrowKey = null;
+  let previousThrowRoundNumber = null;
+  function checkDrawSound(data) {
+    const key = (data.current_throw || []).map((c) => c.id).join(',');
+    const sameRound = previousThrowRoundNumber === data.round_number;
+    if (previousCurrentThrowKey !== null && sameRound && key !== previousCurrentThrowKey) {
+      playDrawSound();
+    }
+    previousCurrentThrowKey = key;
+    previousThrowRoundNumber = data.round_number;
+  }
+
   // The bell — anyone can ring it, everyone hears it.
   let previousBellAt = null;
   function checkBell(data) {
     if (previousBellAt !== null && data.bell_at && data.bell_at !== previousBellAt) {
-      playBellSound();
-      showCallToast(`🔔 ${data.bell_by || 'Someone'} rang the bell!`);
+      // Targeted taunt — only the player it was rung at hears/sees it.
+      const forEveryone = data.bell_target_seat === null || data.bell_target_seat === undefined;
+      const isTarget = forEveryone || data.bell_target_seat === data.your_seat;
+      if (isTarget) {
+        playBellSound();
+        const msg = data.bell_target
+          ? `🔔 ${data.bell_by || 'Someone'} rang the bell at ${data.bell_target}!`
+          : `🔔 ${data.bell_by || 'Someone'} rang the bell!`;
+        showCallToast(msg);
+      }
     }
     previousBellAt = data.bell_at;
+  }
+
+  // Kick announcement — everyone still in the room sees who kicked whom.
+  let previousKickAt = null;
+  function checkKickToast(data) {
+    if (previousKickAt !== null && data.last_kick_at && data.last_kick_at !== previousKickAt) {
+      showCallToast(`🚫 ${data.last_kick_by || 'The host'} kicked ${data.last_kicked_name || 'a player'}.`);
+    }
+    previousKickAt = data.last_kick_at;
   }
 
   // ---------- "Your turn" popup + sound ----------
@@ -627,17 +674,45 @@ function buildResultsTable(table, results, opts) {
   function playThrowSound() {
     if (!audioCtx) return;
     const now = audioCtx.currentTime;
+    const duration = 0.16;
+    const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 0.9;
+    filter.frequency.setValueAtTime(3400, now);
+    filter.frequency.exponentialRampToValueAtTime(800, now + duration);
+
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.4, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    noise.connect(filter).connect(gain).connect(audioCtx.destination);
+    noise.start(now);
+    noise.stop(now + duration);
+  }
+
+  function playDrawSound() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(320, now);
-    osc.frequency.exponentialRampToValueAtTime(120, now + 0.09);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(480, now + 0.11);
     gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(0.22, now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
     osc.connect(gain).connect(audioCtx.destination);
     osc.start(now);
-    osc.stop(now + 0.13);
+    osc.stop(now + 0.17);
   }
 
   function playCallSound() {
@@ -770,7 +845,9 @@ function buildResultsTable(table, results, opts) {
     checkCallToasts(data);
     checkYourTurn(data);
     checkThrowSound(data);
+    checkDrawSound(data);
     checkBell(data);
+    checkKickToast(data);
 
     renderOpponents(data);
     renderTable(data);
@@ -799,12 +876,29 @@ function buildResultsTable(table, results, opts) {
     }
   }
 
+  const POLL_INTERVAL = 1500;
+  const MAX_BACKOFF = 15000;
+
+  // Only these mean "you genuinely don't belong in this room anymore" — bail
+  // out and go home. Everything else (a dropped request, a 429 from the
+  // host rate-limiting a burst of polls, a transient 500) is treated as
+  // temporary: back off and keep retrying instead of kicking the player out.
+  function isFatalError(message) {
+    const m = (message || '').toLowerCase();
+    return m.includes('not found') || m.includes('kicked') || m.includes('missing code');
+  }
+
   let polling = true;
   let lastDataJSON = null;
+  let consecutiveFailures = 0;
+  const reconnectBanner = document.getElementById('reconnect-banner');
+
   async function poll() {
     if (!polling) return;
     try {
       const data = await api(`api/state.php?code=${encodeURIComponent(CODE)}&token=${encodeURIComponent(token)}`);
+      consecutiveFailures = 0;
+      if (reconnectBanner) reconnectBanner.classList.add('hidden');
       // Skip the (expensive, DOM-rebuilding) render entirely when nothing has
       // actually changed since the last poll — this is what was causing the
       // constant flicker at a fast poll rate.
@@ -813,15 +907,22 @@ function buildResultsTable(table, results, opts) {
         lastDataJSON = json;
         render(data);
       }
-    } catch (e) {
-      polling = false;
-      alert(e.message || 'Lost connection to the room.');
-      localStorage.removeItem('yaniv_room');
-      localStorage.removeItem('yaniv_token');
-      window.location.href = 'index.html';
+      setTimeout(poll, POLL_INTERVAL);
       return;
+    } catch (e) {
+      if (isFatalError(e.message)) {
+        polling = false;
+        alert(e.message || 'Lost connection to the room.');
+        localStorage.removeItem('yaniv_room');
+        localStorage.removeItem('yaniv_token');
+        window.location.href = 'index.html';
+        return;
+      }
+      consecutiveFailures++;
+      if (reconnectBanner) reconnectBanner.classList.remove('hidden');
+      const backoff = Math.min(POLL_INTERVAL * Math.pow(2, consecutiveFailures), MAX_BACKOFF);
+      setTimeout(poll, backoff);
     }
-    setTimeout(poll, 1100);
   }
   poll();
 })();

@@ -112,6 +112,11 @@ $response = [
     'chat'             => $chatOut,
     'bell_at'          => !empty($room['bell_rung_at']) ? (strtotime($room['bell_rung_at']) * 1000) : null,
     'bell_by'          => $room['bell_rung_by'] ?? null,
+    'bell_target'      => $room['bell_target'] ?? null,
+    'bell_target_seat' => isset($room['bell_target_seat']) ? (int)$room['bell_target_seat'] : null,
+    'last_kick_at'      => !empty($room['last_kick_at']) ? (strtotime($room['last_kick_at']) * 1000) : null,
+    'last_kick_by'      => $room['last_kick_by'] ?? null,
+    'last_kicked_name'  => $room['last_kicked_name'] ?? null,
 ];
 
 if ($room['status'] === 'round_end' || $room['status'] === 'finished') {

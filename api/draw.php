@@ -85,7 +85,7 @@ try {
             $stmt = $pdo->prepare('UPDATE players SET has_called = 0 WHERE id = ?');
             $stmt->execute([$player['id']]);
             log_event($pdo, (int)$room['id'], "{$player['name']}'s call is off (hand back up to $handValue).");
-        } elseif ($handValue < SHOW_THRESHOLD) {
+        } else {
             $showPending = true;
         }
     } elseif ($handValue < CALL_THRESHOLD) {

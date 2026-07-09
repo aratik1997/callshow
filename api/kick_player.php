@@ -40,6 +40,11 @@ try {
 
     remove_player($pdo, $room, $target, "{$target['name']} was kicked by the host.");
 
+    $stmt = $pdo->prepare(
+        'UPDATE rooms SET last_kick_at = CURRENT_TIMESTAMP, last_kick_by = ?, last_kicked_name = ? WHERE id = ?'
+    );
+    $stmt->execute([$host['name'], $target['name'], $room['id']]);
+
     $pdo->commit();
     json_response(['ok' => true]);
 } catch (Throwable $e) {

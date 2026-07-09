@@ -58,10 +58,10 @@ files served by Apache, so it works on virtually any shared cPanel plan.
   that use row locking (`SELECT ... FOR UPDATE`) so two players acting at once
   can't corrupt game state.
 - Rules implemented: singles/sets/runs of 3+ (with wild jokers), throw first
-  then draw from the deck or either end of the table (the previous player's
-  throw, never your own). A hand under 11 auto-"calls"; on a later turn, if
-  still under 9 after playing, that player may Show (or keep playing while
-  staying under 11 — going back to 11+ cancels the call, and without an
+  then draw from the deck or any card on the table (the previous player's
+  throw, never your own). A hand under 11 auto-"calls"; on any later turn,
+  as long as the hand stays under 11 after playing, that player may Show
+  (or keep playing — going back to 11+ cancels the call, and without an
   active call nobody can Show). Showing reveals every hand: lowest total
   wins, ties/lower-others trigger an Asaf penalty for the shower. Also
   implements the 100→50 / 200→100 score resets and elimination at 200+.
