@@ -241,12 +241,38 @@
       if (!p.connected) pod.classList.add('disconnected');
       if (p.eliminated) pod.classList.add('eliminated');
       if (p.spectating) pod.classList.add('spectating');
-      pod.innerHTML = `
-        ${p.seat === data.turn_seat ? '<div class="turn-flag">TURN</div>' : ''}
-        <div class="avatar">${escapeHtml(p.name.slice(0, 2).toUpperCase())}</div>
-        <div class="pname">${escapeHtml(p.name)}${p.is_you ? ' <span class="you-badge">YOU</span>' : ''}${p.is_host ? ' <span class="host-badge">★</span>' : ''}${p.has_called ? ' <span class="called-badge">CALLED</span>' : ''}</div>
-        <div class="pmeta">${p.eliminated ? 'Out' : (p.spectating ? 'Spectating' : p.card_count + ' cards')}</div>
-      `;
+      if (p.seat === data.turn_seat) {
+        const turnFlag = document.createElement('div');
+        turnFlag.className = 'turn-flag';
+        turnFlag.textContent = 'TURN';
+        pod.appendChild(turnFlag);
+      }
+
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = p.name.slice(0, 2).toUpperCase();
+      pod.appendChild(avatar);
+
+      // Name row — badges and the taunt bell all live inline here, right
+      // after the name, so nothing (like the TURN flag) can overlap them.
+      const pname = document.createElement('div');
+      pname.className = 'pname';
+      pname.innerHTML = `${escapeHtml(p.name)}${p.is_you ? ' <span class="you-badge">YOU</span>' : ''}${p.is_host ? ' <span class="host-badge">★</span>' : ''}${p.has_called ? ' <span class="called-badge">CALLED</span>' : ''}`;
+      if (!p.is_you) {
+        const bellBtn = document.createElement('button');
+        bellBtn.className = 'taunt-bell-btn';
+        bellBtn.title = `Ring the bell at ${p.name}`;
+        bellBtn.textContent = '🔔';
+        bellBtn.addEventListener('click', () => ringBellAt(p.seat, p.name));
+        pname.appendChild(bellBtn);
+      }
+      pod.appendChild(pname);
+
+      const pmeta = document.createElement('div');
+      pmeta.className = 'pmeta';
+      pmeta.textContent = p.eliminated ? 'Out' : (p.spectating ? 'Spectating' : p.card_count + ' cards');
+      pod.appendChild(pmeta);
+
       if (data.is_host && !p.is_you) {
         const kickBtn = document.createElement('button');
         kickBtn.className = 'kick-btn';
@@ -254,14 +280,6 @@
         kickBtn.textContent = '✕';
         kickBtn.addEventListener('click', () => kickPlayer(p.seat, p.name));
         pod.appendChild(kickBtn);
-      }
-      if (!p.is_you) {
-        const bellBtn = document.createElement('button');
-        bellBtn.className = 'taunt-bell-btn';
-        bellBtn.title = `Ring the bell at ${p.name}`;
-        bellBtn.textContent = '🔔';
-        bellBtn.addEventListener('click', () => ringBellAt(p.seat, p.name));
-        pod.appendChild(bellBtn);
       }
       opponentsRow.appendChild(pod);
     });

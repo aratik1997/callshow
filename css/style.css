@@ -663,20 +663,19 @@ button:disabled { cursor: not-allowed; opacity: .45; transform: none; }
   box-shadow: var(--shadow);
 }
 .taunt-bell-btn {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 24px;
-  height: 24px;
+  display: inline-flex;
+  vertical-align: middle;
+  width: 20px;
+  height: 20px;
+  margin-left: 5px;
   border-radius: 50%;
   border: none;
   background: linear-gradient(180deg, #d8dee6, #9aa5b1);
   box-shadow: var(--shadow);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: #2a2f36;
   cursor: pointer;
-  display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
