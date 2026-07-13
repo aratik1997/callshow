@@ -1,4 +1,8 @@
-# Kolshi
+<p align="center">
+  <img src="images/callshow.png" alt="Kolshi logo" width="160">
+</p>
+
+<h1 align="center">Kolshi</h1>
 
 A browser-based multiplayer card game built on Yaniv rules, with a two-phase
 Call/Show win condition, a 30-second turn timer with auto-play, host
