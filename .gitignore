@@ -1,0 +1,9 @@
+# Real DB credentials — copy api/config.example.php to api/config.php locally
+api/config.php
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

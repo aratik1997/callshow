@@ -895,6 +895,7 @@ function buildResultsTable(table, results, opts) {
   }
 
   const POLL_INTERVAL = 1500;
+  const HIDDEN_POLL_INTERVAL = 10000; // background/inactive tabs poll far less often
   const MAX_BACKOFF = 15000;
 
   // Only these mean "you genuinely don't belong in this room anymore" — bail
@@ -909,7 +910,18 @@ function buildResultsTable(table, results, opts) {
   let polling = true;
   let lastDataJSON = null;
   let consecutiveFailures = 0;
+  let pollTimer = null;
   const reconnectBanner = document.getElementById('reconnect-banner');
+
+  // Tabs sitting idle in the background don't need near-real-time updates,
+  // and every open connection counts against the DB host's connection limit
+  // — so back way off while hidden, and catch up instantly when it's shown.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      clearTimeout(pollTimer);
+      poll();
+    }
+  });
 
   async function poll() {
     if (!polling) return;
@@ -925,7 +937,7 @@ function buildResultsTable(table, results, opts) {
         lastDataJSON = json;
         render(data);
       }
-      setTimeout(poll, POLL_INTERVAL);
+      pollTimer = setTimeout(poll, document.hidden ? HIDDEN_POLL_INTERVAL : POLL_INTERVAL);
       return;
     } catch (e) {
       if (isFatalError(e.message)) {
@@ -939,7 +951,7 @@ function buildResultsTable(table, results, opts) {
       consecutiveFailures++;
       if (reconnectBanner) reconnectBanner.classList.remove('hidden');
       const backoff = Math.min(POLL_INTERVAL * Math.pow(2, consecutiveFailures), MAX_BACKOFF);
-      setTimeout(poll, backoff);
+      pollTimer = setTimeout(poll, document.hidden ? Math.max(backoff, HIDDEN_POLL_INTERVAL) : backoff);
     }
   }
   poll();
