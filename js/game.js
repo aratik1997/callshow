@@ -66,7 +66,20 @@
   const lobbyPlayers = document.getElementById('lobby-players');
   const lobbyHostControls = document.getElementById('lobby-host-controls');
   const lobbyGuestMsg = document.getElementById('lobby-guest-msg');
+  const lobbyBotRow = document.getElementById('lobby-bot-row');
   const opponentsRow = document.getElementById('opponents-row');
+
+  document.getElementById('add-bot-btn').addEventListener('click', async (e) => {
+    const addBtn = e.currentTarget;
+    addBtn.disabled = true;
+    try {
+      await api('api/add_bot.php', { code: CODE, token, difficulty: document.getElementById('bot-difficulty').value });
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      addBtn.disabled = false;
+    }
+  });
   const tableArea = document.getElementById('table-area');
   const handRow = document.getElementById('hand-row');
   const yourName = document.getElementById('your-name');
@@ -184,6 +197,7 @@
       const badgeLine = document.createElement('div');
       badgeLine.className = 'lobby-player-badges';
       if (p.is_host) badgeLine.innerHTML += '<span class="lobby-host-badge">👑 HOST</span>';
+      if (p.is_bot) badgeLine.innerHTML += `<span class="lobby-host-badge">🤖 ${escapeHtml(p.bot_difficulty || 'bot')}</span>`;
       if (p.is_you) badgeLine.innerHTML += '<span class="you-badge">YOU</span>';
       if (badgeLine.innerHTML) nameWrap.appendChild(badgeLine);
       identity.appendChild(nameWrap);
@@ -200,6 +214,7 @@
       lobbyPlayers.appendChild(row);
     });
 
+    lobbyBotRow.classList.toggle('hidden', !data.is_host);
     if (data.is_host) {
       lobbyGuestMsg.classList.add('hidden');
       lobbyHostControls.innerHTML = '';

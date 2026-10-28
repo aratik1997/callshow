@@ -38,6 +38,16 @@
     <p>Share this code with friends so they can join:</p>
     <div class="room-code-tag" id="lobby-code" style="display:inline-block;font-size:1.4rem;"></div>
     <div class="lobby-players" id="lobby-players"></div>
+    <div class="bot-row hidden" id="lobby-bot-row">
+      <label>Add a bot
+        <select id="bot-difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </label>
+      <button class="btn-secondary" id="add-bot-btn" type="button">🤖 Add Bot</button>
+    </div>
     <div id="lobby-host-controls"></div>
     <div id="lobby-guest-msg" class="pickup-hint hidden">Waiting for the host to start the game…</div>
     <div class="modal-close-row"><button class="btn-secondary" id="lobby-leave-btn">Back to Home</button></div>

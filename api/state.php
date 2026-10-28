@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/db.php';
 require __DIR__ . '/helpers.php';
+require __DIR__ . '/bots.php';
 
 $code = strtoupper(trim((string)($_GET['code'] ?? '')));
 $token = (string)($_GET['token'] ?? '');
@@ -13,6 +14,8 @@ $room = fetch_room_by_code($pdo, $code);
 if (!$room) json_error('Room not found.', 404);
 
 auto_resolve_expired_turn($pdo, (int)$room['id']);
+// Polled constantly by every player, so this is also where a bot takes its turn when it's due.
+advance_bots($pdo, (int)$room['id']);
 
 // Re-fetch — auto-play may have just changed the room/turn state above.
 $room = fetch_room_by_code($pdo, $code);
@@ -48,8 +51,10 @@ foreach ($players as $p) {
         'seat'         => (int)$p['seat'],
         'name'         => $p['name'],
         'is_host'      => (bool)$p['is_host'],
+        'is_bot'       => (bool)$p['is_bot'],
+        'bot_difficulty' => $p['bot_difficulty'],
         'is_you'       => $p['token'] === $token,
-        'connected'    => (strtotime($p['last_seen']) >= time() - 20),
+        'connected'    => (bool)$p['is_bot'] || (strtotime($p['last_seen']) >= time() - 20),
         'card_count'   => count($hand),
         'score'        => (int)$p['score'],
         'eliminated'   => (bool)$p['eliminated'],
